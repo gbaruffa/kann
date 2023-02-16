@@ -2,32 +2,22 @@ cmake_minimum_required(VERSION 3.11)
 
 project(KANN LANGUAGES C)
 
-if(APPLE)
-  set(CMAKE_PREFIX_PATH "/usr/local/opt/openblas")
-elseif(WIN32)
-  set(ZLIB_ROOT "C:\\Program Files\\zlib-1.2.13")
-endif(APPLE)
-
 find_package(ZLIB REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 set(BLA_VENDOR OpenBLAS)
 find_package(BLAS)
 if(BLAS_FOUND)
-  find_path(BLAS_INCLUDE_DIRS cblas.h ${CMAKE_PREFIX_PATH} /usr/include /usr/local/include $ENV{BLAS_HOME}/include)
+  find_path(BLAS_INCLUDE_DIRS cblas.h /usr/local/opt/openblas /usr/include /usr/local/include $ENV{BLAS_HOME}/include)
 endif(BLAS_FOUND)
 find_package(OpenMP)
 
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
-  # using Clang
   add_definitions(-Wall -Wextra -Wc++-compat)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  # using GCC
   add_definitions(-Wall -Wextra -Wc++-compat -Wno-unused-result)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "Intel")
-  # using Intel C++
 elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-  # using Visual Studio C++
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/getopt)
   add_definitions(/D "_CRT_SECURE_NO_WARNINGS" /D "_CRT_SECURE_NO_DEPRECATE" /wd4996 /wd4267 /wd4244 /wd4098 /wd4305 /wd4090)
 endif()
@@ -51,13 +41,13 @@ target_include_directories(kann_extra PUBLIC $<$<BOOL:${ZLIB_FOUND}>:${ZLIB_INCL
 foreach(target mlp mnist-cnn ae vae)
   add_executable(${target} examples/${target}.c)
   target_compile_definitions(${target} PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD>)
-  target_link_libraries(${target} PUBLIC kann kann_extra $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<BOOL:${ZLIB_FOUND}>:ZLIB::ZLIB> $<$<NOT:${WIN32}>:m>)  
+  target_link_libraries(${target} PUBLIC kann kann_extra $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<BOOL:${ZLIB_FOUND}>:ZLIB::ZLIB> $<$<PLATFORM_ID:Windows>:m>)  
 endforeach(target)
 
 foreach(target textgen inspect rnn-bit)
   add_executable(${target} examples/${target}.c)
   target_compile_definitions(${target} PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD>)
-  target_link_libraries(${target} PUBLIC kann $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<NOT:${WIN32}>:m>)
+  target_link_libraries(${target} PUBLIC kann $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<PLATFORM_ID:Windows>:m>)
 endforeach(target)
 
 include(FetchContent)
