@@ -3,19 +3,30 @@ cmake_minimum_required(VERSION 3.11)
 project(KANN LANGUAGES C)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-add_definitions(-DHAVE_ZLIB -DHAVE_PTHREAD)
 
-add_executable(mlp examples/mlp.c kautodiff.c kann.c kann_extra/kann_data.c)
-target_link_libraries(mlp PUBLIC pthread z m)
-set_target_properties(mlp PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/bin RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
-add_executable(textgen examples/textgen.c kautodiff.c kann.c)
-target_link_libraries(textgen PUBLIC pthread z m)
-set_target_properties(textgen PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/bin RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
-add_executable(mnist-cnn examples/mnist-cnn.c kautodiff.c kann.c kann_extra/kann_data.c)
-target_link_libraries(mnist-cnn PUBLIC pthread z m)
-set_target_properties(mnist-cnn PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/bin RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+add_library(kann STATIC kautodiff.c kann.c)
+target_compile_definitions(kann PUBLIC HAVE_PTHREAD)
+
+add_library(kann_extra STATIC kann_extra/kann_data.c)
+target_compile_definitions(kann_extra PUBLIC HAVE_ZLIB)
+
+foreach(target mlp mnist-cnn ae vae)
+    add_executable(${target} examples/${target}.c)
+    target_compile_definitions(${target} PUBLIC HAVE_PTHREAD)
+    target_link_libraries(${target} PUBLIC kann kann_extra pthread z m)  
+endforeach(target)
+
+foreach(target textgen inspect rnn-bit)
+    add_executable(${target} examples/${target}.c)
+    target_compile_definitions(${target} PUBLIC HAVE_PTHREAD)
+    target_link_libraries(${target} PUBLIC kann pthread z m)
+endforeach(target)
 
 include(FetchContent)
 FetchContent_Declare(
