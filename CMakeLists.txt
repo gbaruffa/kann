@@ -4,9 +4,11 @@ project(KANN LANGUAGES C)
 
 if(APPLE)
   set(CMAKE_PREFIX_PATH "/usr/local/opt/openblas")
+elseif(WIN32)
+  set(ZLIB_ROOT "C:\\Program Files\\zlib-1.2.13")
 endif(APPLE)
 
-find_package(ZLIB)
+find_package(ZLIB REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 set(BLA_VENDOR OpenBLAS)
@@ -16,16 +18,18 @@ if(BLAS_FOUND)
 endif(BLAS_FOUND)
 find_package(OpenMP)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
   # using Clang
   add_definitions(-Wall -Wextra -Wc++-compat)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
   # using GCC
   add_definitions(-Wall -Wextra -Wc++-compat -Wno-unused-result)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "Intel")
   # using Intel C++
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
   # using Visual Studio C++
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/getopt)
+  add_definitions(/D "_CRT_SECURE_NO_WARNINGS" /D "_CRT_SECURE_NO_DEPRECATE" /wd4996 /wd4267 /wd4244 /wd4098 /wd4305 /wd4090)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -37,22 +41,23 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 add_library(kann STATIC kautodiff.c kann.c)
-target_compile_definitions(kann PUBLIC $<$<BOOL:${Threads_FOUND}>:HAVE_PTHREAD> $<$<BOOL:${BLAS_FOUND}>:HAVE_CBLAS>)
+target_compile_definitions(kann PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD> $<$<BOOL:${BLAS_FOUND}>:HAVE_CBLAS>)
 target_include_directories(kann PUBLIC $<$<BOOL:${BLAS_FOUND}>:${BLAS_INCLUDE_DIRS}>)
 
 add_library(kann_extra STATIC kann_extra/kann_data.c)
 target_compile_definitions(kann_extra PUBLIC $<$<BOOL:${ZLIB_FOUND}>:HAVE_ZLIB>)
+target_include_directories(kann_extra PUBLIC $<$<BOOL:${ZLIB_FOUND}>:${ZLIB_INCLUDE_DIRS}>)
 
 foreach(target mlp mnist-cnn ae vae)
   add_executable(${target} examples/${target}.c)
-  target_compile_definitions(${target} PUBLIC $<$<BOOL:${Threads_FOUND}>:HAVE_PTHREAD>)
-  target_link_libraries(${target} PUBLIC kann kann_extra $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${Threads_FOUND}>:Threads::Threads> $<$<BOOL:${ZLIB_FOUND}>:ZLIB::ZLIB> m)  
+  target_compile_definitions(${target} PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD>)
+  target_link_libraries(${target} PUBLIC kann kann_extra $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<BOOL:${ZLIB_FOUND}>:ZLIB::ZLIB> $<$<NOT:${WIN32}>:m>)  
 endforeach(target)
 
 foreach(target textgen inspect rnn-bit)
   add_executable(${target} examples/${target}.c)
-  target_compile_definitions(${target} PUBLIC $<$<BOOL:${Threads_FOUND}>:HAVE_PTHREAD>)
-  target_link_libraries(${target} PUBLIC kann $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${Threads_FOUND}>:Threads::Threads> m)
+  target_compile_definitions(${target} PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD>)
+  target_link_libraries(${target} PUBLIC kann $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<NOT:${WIN32}>:m>)
 endforeach(target)
 
 include(FetchContent)

@@ -7,7 +7,9 @@
 #include <zlib.h>
 KSTREAM_INIT(gzFile, gzread, 16384)
 #else
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 KSTREAM_INIT(int, read, 16384)
 #endif

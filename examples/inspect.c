@@ -1,4 +1,8 @@
+#ifdef _MSC_VER
+#include <getopt.h>
+#else
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 #include "kann.h"
 

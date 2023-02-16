@@ -2,7 +2,11 @@
 #include <stdio.h>
 #include <float.h>
 #include <assert.h>
+#ifdef _MSC_VER
+#include <getopt.h>
+#else
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include "kann.h"
