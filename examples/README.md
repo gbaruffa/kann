@@ -23,7 +23,7 @@ one for output. On prediction, only network input is needed.
 Implemented in [ae.c](ae.c). It takes the same format as `mlp.c`. This example
 shows how to construct a neural network with shared weights.
 
-### Variantional autoencoder
+### Variational autoencoder
 
 Implemented in [vae.c](vae.c). It uses sampling and a complex cost function.
 ```sh
