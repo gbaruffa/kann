@@ -2,13 +2,17 @@ cmake_minimum_required(VERSION 3.11)
 
 project(KANN LANGUAGES C)
 
+if(APPLE)
+  set(CMAKE_PREFIX_PATH "/usr/local/opt/openblas")
+endif(APPLE)
+
 find_package(ZLIB REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 set(BLA_VENDOR OpenBLAS)
 find_package(BLAS)
 if(BLAS_FOUND)
-  find_path(BLAS_INCLUDE_DIRS cblas.h /usr/local/opt/openblas /usr/include /usr/local/include $ENV{BLAS_HOME}/include)
+  find_path(BLAS_INCLUDE_DIRS cblas.h ${CMAKE_PREFIX_PATH} /usr/include /usr/local/include $ENV{BLAS_HOME}/include)
 endif(BLAS_FOUND)
 find_package(OpenMP)
 
