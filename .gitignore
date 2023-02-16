@@ -4,3 +4,6 @@
 *.kan
 *.dSYM
 a.out
+.vscode/
+build/
+kann-data/
