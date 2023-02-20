@@ -1,13 +1,17 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(KANN LANGUAGES C)
+# This project is in C89
+project(KANN VERSION 0.2.0 DESCRIPTION "Standalone and lightweight library in C for constructing and training small to medium artificial neural networks" HOMEPAGE_URL "https://github.com/attractivechaos/kann" LANGUAGES C)
+set(C_STANDARD 90)
 
-
+# Search ZLib
 find_package(ZLIB REQUIRED)
 
+# Search PThreads
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 
+# Search OpenBLAS
 if(APPLE)
   set(CMAKE_PREFIX_PATH "/usr/local/opt/openblas")
 elseif(WIN32)
@@ -19,40 +23,54 @@ if(BLAS_FOUND)
   find_path(BLAS_INCLUDE_DIRS cblas.h ${CMAKE_PREFIX_PATH} /usr/include /usr/local/include $ENV{BLAS_HOME}/include)
 endif(BLAS_FOUND)
 
+# Search OpenMP
 find_package(OpenMP)
 
+# Custom definitions for compilers
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+  # from the original Makefile
   add_definitions(-Wall -Wextra -Wc++-compat)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  # there are unused results which pop-up
   add_definitions(-Wall -Wextra -Wc++-compat -Wno-unused-result)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "Intel")
+  # empty
 elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  # Windows has no getopt
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/getopt)
+  # silence many warnings
   add_definitions(/D "_CRT_SECURE_NO_WARNINGS" /D "_CRT_SECURE_NO_DEPRECATE" /wd4996 /wd4267 /wd4244 /wd4098 /wd4305 /wd4090)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+# Include the library fiolders
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/kann)
 
+# Put all executables in bin
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
+# Put all libraries in lib
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 
-add_library(kann STATIC kautodiff.c kann.c)
+# The main static library
+add_library(kann STATIC kann/kautodiff.c kann/kann.c)
 target_compile_definitions(kann PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD> $<$<BOOL:${BLAS_FOUND}>:HAVE_CBLAS>)
 target_include_directories(kann PUBLIC $<$<BOOL:${BLAS_FOUND}>:${BLAS_INCLUDE_DIRS}>)
 
+# Additional static library used to read from data files
 add_library(kann_extra STATIC kann_extra/kann_data.c)
 target_compile_definitions(kann_extra PUBLIC $<$<BOOL:${ZLIB_FOUND}>:HAVE_ZLIB>)
 target_include_directories(kann_extra PUBLIC $<$<BOOL:${ZLIB_FOUND}>:${ZLIB_INCLUDE_DIRS}>)
 
+# Create the main examples that use ZLib
 foreach(target mlp mnist-cnn ae vae)
   add_executable(${target} examples/${target}.c)
   target_compile_definitions(${target} PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD>)
   target_link_libraries(${target} PUBLIC kann kann_extra $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:${BLAS_LIBRARIES}> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<BOOL:${ZLIB_FOUND}>:ZLIB::ZLIB> $<$<NOT:$<PLATFORM_ID:Windows>>:m>)  
+  # Copy the required DLL's in the exe folder
   if(WIN32 AND BLAS_FOUND)
     add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "$ENV{BLAS_HOME}\\bin\\libopenblas.dll" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
   endif()
@@ -61,18 +79,18 @@ foreach(target mlp mnist-cnn ae vae)
   endif()
 endforeach(target)
 
+# Create the main examples that do not use ZLib
 foreach(target textgen inspect rnn-bit)
   add_executable(${target} examples/${target}.c)
   target_compile_definitions(${target} PUBLIC $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:HAVE_PTHREAD>)
   target_link_libraries(${target} PUBLIC kann $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_C> $<$<BOOL:${BLAS_FOUND}>:${BLAS_LIBRARIES}> $<$<BOOL:${CMAKE_USE_PTHREADS_INIT}>:Threads::Threads> $<$<NOT:$<PLATFORM_ID:Windows>>:m>)
+  # Copy the required DLL's in the exe folder
   if(WIN32 AND BLAS_FOUND)
     add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "$ENV{BLAS_HOME}\\bin\\libopenblas.dll" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
   endif()
-  if(WIN32 AND ZLIB_FOUND)
-    add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ZLIB_INCLUDE_DIRS}\\..\\bin\\zlib.dll" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-  endif()
 endforeach(target)
 
+# Download models and some training data
 include(FetchContent)
 FetchContent_Declare(
   kanndata
@@ -90,19 +108,54 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(kanndata kannmodels)
 
-
-enable_testing()
+set_property(TARGET mlp APPEND PROPERTY ADDITIONAL_CLEAN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan)
+set_property(TARGET ae APPEND PROPERTY ADDITIONAL_CLEAN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mnist-ae.kan)
+set_property(TARGET rnn-bit APPEND PROPERTY ADDITIONAL_CLEAN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/in.txt)
 file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/in.txt" "15315611231621249 78")
-add_test(mlp1 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/mlp -o ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-x.knd.gz ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-y.knd.gz)
-add_test(mlp2 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/mlp -i ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz)
-add_test(ae1 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ae -o ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-x.knd.gz ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-y.knd.gz)
-add_test(ae2 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ae -i ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz)
-add_test(inspect ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/inspect ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan)
-set_property(TARGET mlp APPEND PROPERTY ADDITIONAL_CLEAN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/in.txt)
-set_tests_properties(mlp1 mlp2 ae1 ae2 inspect PROPERTIES RUN_SERIAL TRUE)
-add_test(textgen ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/textgen -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/acc-l3-n256r.kan -T 1e-6)
-add_test(vae1 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/vae -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mnist-vae.kan -A ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz)
-add_test(vae2 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/vae -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mnist-vae.kan -g 10)
-add_test(mnist-cnn ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/mnist-cnn -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mnist-cnn.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz)
-add_test(rnn-bit ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/rnn-bit -Ai ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mul100.kan ${CMAKE_CURRENT_SOURCE_DIR}/in.txt)
+
+# The testing section uses the examples
+enable_testing()
+add_test(
+  NAME mlp1
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/mlp -o ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-x.knd.gz ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-y.knd.gz
+)
+add_test(
+  NAME mlp2
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/mlp -i ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz
+)
+set_tests_properties(mlp2 PROPERTIES DEPENDS mlp1)
+add_test(
+  NAME ae1
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ae -o ${CMAKE_CURRENT_SOURCE_DIR}/mnist-ae.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-x.knd.gz ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-train-y.knd.gz
+)
+add_test(
+  NAME ae2
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ae -i ${CMAKE_CURRENT_SOURCE_DIR}/mnist-ae.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz
+)
+set_tests_properties(ae2 PROPERTIES DEPENDS ae1)
+add_test(
+  NAME inspect
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/inspect ${CMAKE_CURRENT_SOURCE_DIR}/mnist-mlp.kan
+)
+set_tests_properties(inspect PROPERTIES DEPENDS mlp1)
+add_test(
+  NAME textgen
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/textgen -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/acc-l3-n256r.kan -T 1e-6
+)
+add_test(
+  NAME vae1
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/vae -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mnist-vae.kan -A ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz
+)
+add_test(
+  NAME vae2
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/vae -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mnist-vae.kan -g 10
+)
+add_test(
+  NAME mnist-cnn
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/mnist-cnn -i ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mnist-cnn.kan ${CMAKE_CURRENT_SOURCE_DIR}/kann-data/mnist-test-x.knd.gz
+)
+add_test(
+  NAME rnn-bit
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/rnn-bit -Ai ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mul100.kan ${CMAKE_CURRENT_SOURCE_DIR}/in.txt
+)
 
