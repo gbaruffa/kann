@@ -157,5 +157,5 @@ add_test(
 add_test(
   NAME rnn-bit
   COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/rnn-bit -Ai ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mul100.kan ${CMAKE_CURRENT_SOURCE_DIR}/in.txt
-)
+) 
 

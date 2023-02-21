@@ -55,6 +55,7 @@ dkms.conf
 .vscode/
 
 # KANN files
+in.txt
 *.kan
 kann-data/
 kann-models/
