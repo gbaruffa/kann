@@ -11,6 +11,13 @@ project(
 )
 set(C_STANDARD 90)
 
+# Additional search paths
+if(APPLE)
+  set(CMAKE_PREFIX_PATH "/usr/local/opt/openblas")
+elseif(WIN32)
+  set(CMAKE_PREFIX_PATH "$ENV{BLAS_HOME}\\lib" ) 
+endif()
+
 # Search ZLib
 find_package(ZLIB REQUIRED)
 
@@ -19,11 +26,6 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 
 # Search OpenBLAS
-if(APPLE)
-  set(CMAKE_PREFIX_PATH "/usr/local/opt/openblas")
-elseif(WIN32)
-  set(CMAKE_PREFIX_PATH "$ENV{BLAS_HOME}\\lib") 
-endif()
 set(BLA_VENDOR OpenBLAS)
 find_package(BLAS)
 if(BLAS_FOUND)
