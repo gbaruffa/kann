@@ -209,7 +209,7 @@ add_test(
   COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/rnn-bit -Ai ${CMAKE_CURRENT_SOURCE_DIR}/kann-models/mul100.kan ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rnn-bit-in.txt
 ) 
 set_tests_properties(
-  mlp2 ae2 inspect1 inspect2 textgen vae1 vae2 mnist-cnn rnn-bit 
+  mlp2 ae2 inspect1 inspect2 textgen 
   PROPERTIES FIXTURES_REQUIRED kann
 )
 add_test(
